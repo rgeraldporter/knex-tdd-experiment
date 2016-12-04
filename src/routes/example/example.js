@@ -45,9 +45,7 @@ function postThing (request, response, next) {
         });  
 }
 
-export default function() {
-    return {
-        getThing,
-        postThing
-    };
-}
+export default server => ({
+    getThing,
+    postThing
+});

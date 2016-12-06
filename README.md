@@ -9,3 +9,7 @@ Using Knex for schema-building can be an amazing tool for tracking changes to da
 Mock-Knex provides functions for assertion libraries to use in unit tests. However, it is unnervingly easy to create non-falsifiable tests unless specific patterns are followed when using [Mocha](https://www.npmjs.com/package/mocha) and [Chai](https://www.npmjs.com/package/chai) as the testing framework and assertion library. 
 
 The purpose of this experiment is to identify good patterns for use in this combination of libraries, and to explore alternatives that are less brittle.
+
+## Cases
+
+Each test case is in a seperate `hypothesis/*` branch depending on the framework(s) being used to test with.

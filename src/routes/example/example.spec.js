@@ -1,20 +1,7 @@
-import chai from 'chai';
-import spies from 'chai-spies';
 import exampleController from './example';
 import mockDb from 'mock-knex';
 import restify from 'restify';
 import Promise from 'bluebird';
-
-chai.should()
-chai.use(spies);
-chai.config.truncateThreshold = 0;
-
-const nextPromise = chai.spy(err => 
-    new Promise((resolve, reject) => {
-        if (err) reject(err);
-        else resolve();
-    })
-);
 
 describe('The example controller', () => {
     let tracker, serverSpy, controller;
@@ -22,8 +9,7 @@ describe('The example controller', () => {
     beforeEach(() => {
         tracker = mockDb.getTracker();
         tracker.install();
-        serverSpy = chai.spy(() => null);
-        controller = exampleController(serverSpy);
+        controller = exampleController();
     });
 
     afterEach(() => {
@@ -31,99 +17,77 @@ describe('The example controller', () => {
     });
 
     describe('getThing', () => {
-        let request, response, next, spy;
+        let request, response, next;
         beforeEach(() => {
             request = {params: {id: 111}};
-            response = {};
-            next = nextPromise;
-            spy = chai.spy.on(response, 'send');
+            response = {send: () => null};
+            next = () => null;
+            spyOn(response, 'send').and.callThrough();
         });
 
-        it('should get a valid thing', () => {
+        it('should get a valid thing', done => {
             tracker.on('query', query => {
-                query.method.should.equal('first');
-                query.bindings[0].should.equal(111);
+                expect(query.method).toEqual('first');
+                expect(query.bindings[0]).toEqual(111);
                 query.response({value: 'some data'});
             });
             return controller.getThing(request, response, next)
                 .then(() => {
-                    spy.should.have.been.called.with({value: 'some data'});
+                    expect(response.send).toHaveBeenCalledWith(200, {value: 'some data'});
+                    done();
                 });
         });
 
-        /*
-        taking next and returning null means this test won't necessarily fail in tracker.on
-        thus no longer falsifiable
-        though it might fail, but give the wrong hint (will say the next() doesn't match but it's really the tracker that fails)
-        adding promise to next, it will always fail when test error conditions as it becomes too sensitive so that's not good
-        solution appears to be to just don't bother doing tests in tracker.on() as that has already been covered anyways
-         */
-        xit('should not get a invalid thing', () => {
+        it('should not get a invalid thing', done => {
+            next = jasmine.createSpy();
             request = {params: {id: 112}};
             tracker.on('query', query => {
-                query.method.should.equal('first');
-                query.bindings[0].should.equal(112);
+                expect(query.method).toEqual('first');
+                expect(query.bindings[0]).toEqual(112);
                 query.response([]);
             });
-            return controller.getThing(request, response, next)
+            controller.getThing(request, response, next)
                 .then(() => {
-                    next.should.have.been.called.with(new restify.NotFoundError('Not found'));
-                });
-        });
-
-        it('should not get a invalid thing', () => {
-            next = chai.spy(() => null);
-            request = {params: {id: 112}};
-            tracker.on('query', query => {
-                query.response([]);
-            });
-            return controller.getThing(request, response, next)
-                .then(() => {
-                    next.should.have.been.called.with(new restify.NotFoundError('Not found'));
+                    expect(next).toHaveBeenCalledWith(new restify.NotFoundError('Not found'));
+                    done();
                 });
         });
     });
 
     describe('postThing', () => {
-        let request, response, next, spy;
+        let request, response, next;
         beforeEach(() => {
             request = {body: {value: 'someData'}};
-            response = {};
-            next = nextPromise;
-            spy = chai.spy.on(response, 'send');
+            response = {send: () => null};
+            next = () => null;
+            spyOn(response, 'send').and.callThrough();
         });
 
-        it('should return an error if thing is not included', () => {
-            next = chai.spy(() => null);
+        it('should return an error if thing is not included', done => {
+            next = jasmine.createSpy();
             delete request.body.value;
-            return controller.postThing(request, response, next)
+            controller.postThing(request, response, next)
                 .then(() => {
-                    next.should.be.called.with(new restify.BadRequestError('No thing data was included'));
+                    expect(next).toHaveBeenCalledWith(new restify.BadRequestError('No thing data was included'));
+                    done();
                 });
-            
         });
 
-        it('should have postgres call the INSERT query', () => {
+        it('should have postgres call the INSERT query', done => {
             let error = false;
+            next = jasmine.createSpy();
             tracker.on('query', query => {
-                query.method.should.equal('insert');
-                query.sql.should.have.string('insert into "things"');
-                query.bindings[0].should.equal('someData');
+                expect(query.method).toEqual('insert');
+                expect(query.sql).toContain('insert into "things"');
+                expect(query.bindings[0]).toEqual('someData');
                 query.response([110]);
             });
-            return controller.postThing(request, response, next);
-        });
-
-        it('should return a 201 code on success', () => {
-            tracker.on('query', query => {
-                query.response([112]);
-            });
-            return controller.postThing(request, response, next).then(() => {
-                spy.should.have.been.called.with(201);
-                next.should.have.been.called();
+            controller.postThing(request, response, next).then(() => {
+                expect(next).toHaveBeenCalled();
+                expect(response.send).toHaveBeenCalledWith(201, {id: 110});
+                done();
             });
         });
-
     });
 
 });

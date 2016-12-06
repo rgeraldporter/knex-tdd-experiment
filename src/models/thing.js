@@ -1,6 +1,6 @@
 import db from '../lib/db';
 
-const get = str => db('things')
+let get = str => db('things')
     .first('*')
     .where('id', str)
     .then(thing => thing ? thing : null);

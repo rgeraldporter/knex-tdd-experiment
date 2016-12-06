@@ -8,7 +8,7 @@
   "scripts": {
     "build": "babel --presets es2015 src -d dist",
     "start": "node dist/index.js",
-    "unit": "find ./src -name '*.spec.js' | ./node_modules/cross-env/bin/cross-env.js NODE_ENV=unit xargs ./node_modules/mocha/bin/mocha --require babel-register",
+    "unit": "./node_modules/cross-env/bin/cross-env.js NODE_ENV=unit JASMINE_CONFIG_PATH=test/jasmine.json  babel-node ./node_modules/jasmine/bin/jasmine",
     "integration": "npm run build && PORT=$PORT||5432; DATABASE_URL=postgres://$LOGIN:$PASS@localhost:$PORT/postgres NODE_ENV=integration babel-node ./test/db.setup.js && DATABASE_URL=postgres://$LOGIN:$PASS@localhost:$PORT/example NODE_ENV=integration npm run migrate:latest && DATABASE_URL=postgres://$LOGIN:$PASS@localhost:$PORT/example NODE_ENV=integration npm run seed:run && ./node_modules/cross-env/bin/cross-env.js DATABASE_URL=postgres://$LOGIN:$PASS@localhost:$PORT/example NODE_ENV=integration ./node_modules/mocha/bin/mocha test/integration --require babel-register",
     "init": "knex init",
     "migrate:make": "knex migrate:make",
@@ -32,6 +32,7 @@
     "cross-env": "^3.1.3",
     "eslint": "^3.11.1",
     "hippie": "^0.5.1",
+    "jasmine": "^2.5.2",
     "knex": "^0.12.6",
     "mocha": "^3.2.0",
     "mock-knex": "^0.3.7",

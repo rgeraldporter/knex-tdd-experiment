@@ -1,16 +1,7 @@
-import restify from 'restify';
-import example from './routes/example/example';
+import server from './lib/server.js';
 
-const server = restify.createServer({name: 'Knex TDD Tutorial'});
-const exampleController = example(server);
-
-server.get({
-    name: 'example-endpoint',
-    path: '/example/:id',
-    version: '1.0.0'
-}, exampleController.getThing);
-
+// start the service
 server.listen(8813, () => {
-    const info = server.address();
-    console.info(`Started server on ${info.address} ${info.port}`);
+    const instance = server.address();
+    console.info(`Server instance started: ${instance.address} ${instance.port}`);
 });

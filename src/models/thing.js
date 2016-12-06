@@ -7,6 +7,6 @@ const get = str => db('things')
 
 const post = val => db('things')
     .insert(val)
-    .returning(id);
+    .returning('id');
 
 export default {get, post};

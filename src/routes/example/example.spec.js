@@ -83,4 +83,47 @@ describe('The example controller', () => {
                 });
         });
     });
+
+    describe('postThing', () => {
+        let request, response, next, spy;
+        beforeEach(() => {
+            request = {body: {value: 'someData'}};
+            response = {};
+            next = nextPromise;
+            spy = chai.spy.on(response, 'send');
+        });
+
+        it('should return an error if thing is not included', () => {
+            next = chai.spy(() => null);
+            delete request.body.value;
+            return controller.postThing(request, response, next)
+                .then(() => {
+                    next.should.be.called.with(new restify.BadRequestError('No thing data was included'));
+                });
+            
+        });
+
+        it('should have postgres call the INSERT query', () => {
+            let error = false;
+            tracker.on('query', query => {
+                query.method.should.equal('insert');
+                query.sql.should.have.string('insert into "things"');
+                query.bindings[0].should.equal('someData');
+                query.response([110]);
+            });
+            return controller.postThing(request, response, next);
+        });
+
+        it('should return a 201 code on success', () => {
+            tracker.on('query', query => {
+                query.response([112]);
+            });
+            return controller.postThing(request, response, next).then(() => {
+                spy.should.have.been.called.with(201);
+                next.should.have.been.called();
+            });
+        });
+
+    });
+
 });

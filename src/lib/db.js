@@ -5,7 +5,7 @@ const mockConnection = () => {
     const connection = knex({client: 'pg', debug: false});
     mockKnex.mock(connection);
     return connection;
-}
+};
 
 const realConnection = () => knex({
     client: 'pg',

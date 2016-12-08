@@ -1,16 +1,9 @@
 import assert from 'assert';
-import sinon from 'sinon';
+import td from 'testdouble';
 import exampleController from './example';
 import mockDb from 'mock-knex';
 import restify from 'restify';
 import Promise from 'bluebird';
-
-const nextPromise = sinon.spy(err => 
-    new Promise((resolve, reject) => {
-        if (err) reject(err);
-        else resolve();
-    })
-);
 
 describe('The example controller', () => {
     let tracker, serverSpy, controller;
@@ -27,16 +20,15 @@ describe('The example controller', () => {
     });
 
     describe('getThing', () => {
-        let request, response, next, spy;
+        let request, response, next;
         beforeEach(() => {
             request = {params: {id: 111}};
-            response = { send: () => null };
-            next = nextPromise;
-            spy = sinon.spy(response, 'send');
+            response = { send: td.function() };
+            next = td.function();
         });
 
         afterEach(() => {
-            response.send.restore();
+            td.reset();
         });
 
         it('should get a valid thing', () => {
@@ -47,12 +39,16 @@ describe('The example controller', () => {
             });
             return controller.getThing(request, response, next)
                 .then(() => {
-                    assert(spy.withArgs(200, {value: 'some data'}).called);
+                    // when the tracker.on fails, it actually flags as td.verify failure
+                    // to invoke the method, so actual failure line is lost.
+                    // the only way to catch these properly is to assert next(), but even then,
+                    // the error isn't clean.
+                    // (setting next() to return a promise does not help this)
+                    td.verify(response.send(200, {value: 'some data'}));
                 });
         });
 
         it('should not get a invalid thing', () => {
-            next = sinon.spy(() => null);
             request = {params: {id: 112}};
             tracker.on('query', query => {
                 // when these fail they will be rather vague
@@ -63,43 +59,59 @@ describe('The example controller', () => {
             });
             return controller.getThing(request, response, next)
                 .then(() => {
-                    assert(next.withArgs(new restify.NotFoundError('Not found')).called);
+                    td.verify(next(new restify.NotFoundError('Not found')));
                 });
         });
     });
 
     describe('postThing', () => {
-        let request, response, next, spy;
+        let request, response, next;
         beforeEach(() => {
             request = {body: {value: 'someData'}};
-            response = {send: () => null};
-            next = nextPromise;
-            spy = sinon.spy(response, 'send');
+            response = {send: td.function()};
+            next = td.function();
         });
 
         afterEach(() => {
-            response.send.restore();
+            td.reset();
         });
 
         it('should return an error if thing is not included', () => {
-            next = sinon.spy(() => null);
             delete request.body.value;
             return controller.postThing(request, response, next)
                 .then(() => {
-                    assert(next.withArgs(new restify.BadRequestError('No thing data was included')));
+                    td.verify(next(new restify.BadRequestError('No thing data was included')));
                 });
             
         });
 
-        it('should have postgres call the INSERT query', () => {
+        // NON-FALSIFIABLE!
+        xit('should have postgres call the INSERT query', () => {
             let error = false;
             tracker.on('query', query => {
                 assert.equal(query.method, 'insert');
-                assert.ok(query.sql.indexOf('insert into "things"') !== -1);
+                assert.ok(query.sql.indexOf('insert int o "things"') !== -1);
                 assert.equal(query.bindings[0], 'someData');
                 query.response([110]);
             });
             return controller.postThing(request, response, next);
+        });
+
+        // must use done() with try/catch, and even then, error is vague
+        it('should have postgres call the INSERT query', done => {
+            let error = false;
+            tracker.on('query', query => {
+                try {
+                    assert.equal(query.method, 'insert');
+                    assert.ok(query.sql.indexOf('insert into "things"') !== -1);
+                    assert.equal(query.bindings[0], 'someData');
+                    done();
+                }
+                catch (err) {
+                    done(err);
+                }
+            });
+            controller.postThing(request, response, next);
         });
 
         it('should return a 201 code on success', () => {
@@ -107,7 +119,7 @@ describe('The example controller', () => {
                 query.response([112]);
             });
             return controller.postThing(request, response, next).then(() => {
-                assert(spy.withArgs(201).called);
+                td.verify(response.send(201, {id: 112}));
             });
         });
 

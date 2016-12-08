@@ -98,6 +98,7 @@ describe('The example controller', () => {
         });
 
         // must use done() with try/catch, and even then, error is vague
+        // otherwise a .then() with something that can catch errors is needed
         it('should have postgres call the INSERT query', done => {
             let error = false;
             tracker.on('query', query => {

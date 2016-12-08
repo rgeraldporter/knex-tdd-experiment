@@ -1,15 +1,11 @@
-import chai from 'chai';
-import spies from 'chai-spies';
+import assert from 'assert';
+import sinon from 'sinon';
 import exampleController from './example';
 import mockDb from 'mock-knex';
 import restify from 'restify';
 import Promise from 'bluebird';
 
-chai.should()
-chai.use(spies);
-chai.config.truncateThreshold = 0;
-
-const nextPromise = chai.spy(err => 
+const nextPromise = sinon.spy(err => 
     new Promise((resolve, reject) => {
         if (err) reject(err);
         else resolve();
@@ -22,7 +18,7 @@ describe('The example controller', () => {
     beforeEach(() => {
         tracker = mockDb.getTracker();
         tracker.install();
-        serverSpy = chai.spy(() => null);
+        serverSpy = () => null;
         controller = exampleController(serverSpy);
     });
 
@@ -34,52 +30,40 @@ describe('The example controller', () => {
         let request, response, next, spy;
         beforeEach(() => {
             request = {params: {id: 111}};
-            response = {};
+            response = { send: () => null };
             next = nextPromise;
-            spy = chai.spy.on(response, 'send');
+            spy = sinon.spy(response, 'send');
+        });
+
+        afterEach(() => {
+            response.send.restore();
         });
 
         it('should get a valid thing', () => {
             tracker.on('query', query => {
-                query.method.should.equal('first');
-                query.bindings[0].should.equal(111);
+                assert.equal(query.method, 'first');
+                assert.equal(query.bindings[0], 111);
                 query.response({value: 'some data'});
             });
             return controller.getThing(request, response, next)
                 .then(() => {
-                    spy.should.have.been.called.with({value: 'some data'});
-                });
-        });
-
-        /*
-        taking next and returning null means this test won't necessarily fail in tracker.on
-        thus no longer falsifiable
-        though it might fail, but give the wrong hint (will say the next() doesn't match but it's really the tracker that fails)
-        adding promise to next, it will always fail when test error conditions as it becomes too sensitive so that's not good
-        solution appears to be to just don't bother doing tests in tracker.on() as that has already been covered anyways
-         */
-        xit('should not get a invalid thing', () => {
-            request = {params: {id: 112}};
-            tracker.on('query', query => {
-                query.method.should.equal('first');
-                query.bindings[0].should.equal(112);
-                query.response([]);
-            });
-            return controller.getThing(request, response, next)
-                .then(() => {
-                    next.should.have.been.called.with(new restify.NotFoundError('Not found'));
+                    assert(spy.withArgs(200, {value: 'some data'}).called);
                 });
         });
 
         it('should not get a invalid thing', () => {
-            next = chai.spy(() => null);
+            next = sinon.spy(() => null);
             request = {params: {id: 112}};
             tracker.on('query', query => {
+                // when these fail they will be rather vague
+                // seems to be due to 'Not found' error nullifying these assertion error messages
+                assert.equal(query.method, 'first');
+                assert.equal(query.bindings[0], 112);
                 query.response([]);
             });
             return controller.getThing(request, response, next)
                 .then(() => {
-                    next.should.have.been.called.with(new restify.NotFoundError('Not found'));
+                    assert(next.withArgs(new restify.NotFoundError('Not found')).called);
                 });
         });
     });
@@ -88,17 +72,21 @@ describe('The example controller', () => {
         let request, response, next, spy;
         beforeEach(() => {
             request = {body: {value: 'someData'}};
-            response = {};
+            response = {send: () => null};
             next = nextPromise;
-            spy = chai.spy.on(response, 'send');
+            spy = sinon.spy(response, 'send');
+        });
+
+        afterEach(() => {
+            response.send.restore();
         });
 
         it('should return an error if thing is not included', () => {
-            next = chai.spy(() => null);
+            next = sinon.spy(() => null);
             delete request.body.value;
             return controller.postThing(request, response, next)
                 .then(() => {
-                    next.should.be.called.with(new restify.BadRequestError('No thing data was included'));
+                    assert(next.withArgs(new restify.BadRequestError('No thing data was included')));
                 });
             
         });
@@ -106,9 +94,9 @@ describe('The example controller', () => {
         it('should have postgres call the INSERT query', () => {
             let error = false;
             tracker.on('query', query => {
-                query.method.should.equal('insert');
-                query.sql.should.have.string('insert into "things"');
-                query.bindings[0].should.equal('someData');
+                assert.equal(query.method, 'insert');
+                assert.ok(query.sql.indexOf('insert into "things"') !== -1);
+                assert.equal(query.bindings[0], 'someData');
                 query.response([110]);
             });
             return controller.postThing(request, response, next);
@@ -119,8 +107,7 @@ describe('The example controller', () => {
                 query.response([112]);
             });
             return controller.postThing(request, response, next).then(() => {
-                spy.should.have.been.called.with(201);
-                next.should.have.been.called();
+                assert(spy.withArgs(201).called);
             });
         });
 
